@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Share, Alert } from 'react-native';
 import { Card, Title, Paragraph, Avatar, ActivityIndicator, Button, Text, Chip } from 'react-native-paper';
-import { getUserProfile, getForms } from '../../lib/api';
+import { getUserProfile, getForms, publishForm } from '../../lib/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
 
 export default function Dashboard() {
   const [user, setUser] = useState<any>(null);
@@ -48,6 +49,44 @@ export default function Dashboard() {
     router.push({ pathname: '/form-detail', params: { id } });
   };
 
+  const handlePublish = async (id: string) => {
+    try {
+      await publishForm(id);
+      // Refresh the forms list
+      fetchData();
+    } catch (error: any) {
+      console.error('Failed to publish form', error);
+    }
+  };
+
+  const getShareUrl = (formId: string) => {
+    const baseUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://dynamic-form-builder-vx4o.onrender.com';
+    return `${baseUrl}/forms/${formId}`;
+  };
+
+  const handleShare = async (formId: string, formTitle: string) => {
+    try {
+      const url = getShareUrl(formId);
+      await Share.share({
+        message: `Check out this form: ${formTitle}\n${url}`,
+        url: url,
+        title: formTitle,
+      });
+    } catch (error) {
+      console.error('Failed to share', error);
+    }
+  };
+
+  const handleCopyLink = async (formId: string) => {
+    try {
+      const url = getShareUrl(formId);
+      await Clipboard.setStringAsync(url);
+      Alert.alert('Success', 'Link copied to clipboard!');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to copy link');
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -58,7 +97,7 @@ export default function Dashboard() {
 
   return (
     <View style={styles.mainContainer}>
-      <ScrollView 
+      <ScrollView
         contentContainerStyle={styles.container}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
@@ -68,9 +107,9 @@ export default function Dashboard() {
             <Text style={styles.greeting}>Welcome back,</Text>
             <Title style={styles.userName}>{user?.name || 'User'}</Title>
           </View>
-          <Avatar.Text 
-            size={45} 
-            label={user?.name ? user.name.substring(0, 2).toUpperCase() : 'U'} 
+          <Avatar.Text
+            size={45}
+            label={user?.name ? user.name.substring(0, 2).toUpperCase() : 'U'}
             style={styles.avatar}
           />
         </View>
@@ -84,8 +123,8 @@ export default function Dashboard() {
         {/* Forms List */}
         {forms.length > 0 ? (
           forms.map((form) => (
-            <TouchableOpacity key={form._id} onPress={() => navigateToForm(form._id)}>
-              <Card style={styles.formCard}>
+            <Card key={form._id} style={styles.formCard}>
+              <TouchableOpacity onPress={() => navigateToForm(form._id)}>
                 <Card.Content>
                   <View style={styles.cardHeader}>
                     <Title style={styles.formTitle} numberOfLines={1}>{form.title}</Title>
@@ -100,13 +139,56 @@ export default function Dashboard() {
                     <Text style={styles.dateText}>
                       {new Date(form.createdAt).toLocaleDateString()}
                     </Text>
-                    <View style={styles.statusBadge}>
-                      <Text style={styles.statusText}>{form.status || 'Draft'}</Text>
+                    <View style={[
+                      styles.statusBadge,
+                      form.status === 'published' ? styles.publishedBadge : styles.draftBadge
+                    ]}>
+                      <Text style={[
+                        styles.statusText,
+                        form.status === 'published' ? styles.publishedText : styles.draftText
+                      ]}>{form.status || 'Draft'}</Text>
                     </View>
                   </View>
                 </Card.Content>
-              </Card>
-            </TouchableOpacity>
+              </TouchableOpacity>
+              <Card.Actions style={styles.cardActions}>
+                <Button
+                  mode="outlined"
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    router.push({ pathname: '/form-builder', params: { id: form._id } });
+                  }}
+                  icon="pencil"
+                  style={styles.actionButton}
+                >
+                  Edit
+                </Button>
+                <Button
+                  mode="outlined"
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleShare(form._id, form.title);
+                  }}
+                  icon="share-variant"
+                  style={styles.actionButton}
+                >
+                  Share
+                </Button>
+                {form.status === 'draft' && (
+                  <Button
+                    mode="contained"
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handlePublish(form._id);
+                    }}
+                    icon="upload"
+                    style={styles.publishButton}
+                  >
+                    Publish
+                  </Button>
+                )}
+              </Card.Actions>
+            </Card>
           ))
         ) : (
           <View style={styles.emptyState}>
@@ -204,16 +286,36 @@ const styles = StyleSheet.create({
     color: '#999',
   },
   statusBadge: {
-    backgroundColor: '#e8f5e9',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 4,
   },
+  draftBadge: {
+    backgroundColor: '#fff3e0',
+  },
+  publishedBadge: {
+    backgroundColor: '#e8f5e9',
+  },
   statusText: {
     fontSize: 10,
-    color: '#2e7d32',
     fontWeight: 'bold',
     textTransform: 'uppercase',
+  },
+  draftText: {
+    color: '#f57c00',
+  },
+  publishedText: {
+    color: '#2e7d32',
+  },
+  cardActions: {
+    paddingHorizontal: 8,
+    paddingBottom: 8,
+  },
+  actionButton: {
+    marginRight: 8,
+  },
+  publishButton: {
+    backgroundColor: '#6200ee',
   },
   emptyState: {
     alignItems: 'center',

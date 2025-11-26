@@ -75,3 +75,66 @@ export async function getFormDetail(id: string) {
   });
   return handleResponse(res);
 }
+
+export async function getFormResponses(formId: string) {
+  const token = await import('@react-native-async-storage/async-storage').then(m => m.default.getItem('token'));
+  const res = await fetch(`${BASE_URL}/api/responses/form/${formId}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+  return handleResponse(res);
+}
+
+export async function getResponseDetail(id: string) {
+  const token = await import('@react-native-async-storage/async-storage').then(m => m.default.getItem('token'));
+  const res = await fetch(`${BASE_URL}/api/responses/${id}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+  return handleResponse(res);
+}
+
+export async function generateFormWithAI(prompt: string) {
+  const token = await import('@react-native-async-storage/async-storage').then(m => m.default.getItem('token'));
+  const res = await fetch(`${BASE_URL}/api/forms/generate`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({ prompt }),
+  });
+  return handleResponse(res);
+}
+
+export async function updateForm(id: string, formData: any) {
+  const token = await import('@react-native-async-storage/async-storage').then(m => m.default.getItem('token'));
+  const res = await fetch(`${BASE_URL}/api/forms/${id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(formData),
+  });
+  return handleResponse(res);
+}
+
+export async function publishForm(id: string) {
+  const token = await import('@react-native-async-storage/async-storage').then(m => m.default.getItem('token'));
+  const res = await fetch(`${BASE_URL}/api/forms/${id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({ status: 'published' }),
+  });
+  return handleResponse(res);
+}
