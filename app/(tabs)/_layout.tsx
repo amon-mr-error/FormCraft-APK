@@ -1,8 +1,8 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
@@ -19,15 +19,29 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          title: 'My Forms',
+          tabBarIcon: ({ color }) => <MaterialCommunityIcons size={28} name="file-document-outline" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="generate"
+        options={{
+          title: '',
+          tabBarIcon: ({ color }) => <MaterialCommunityIcons size={32} name="plus-circle" color={color} />,
+          tabBarLabelStyle: { display: 'none' }, // Hide label for the center button
+        }}
+      />
+      <Tabs.Screen
+        name="responses"
+        options={{
+          title: 'Responses',
+          tabBarIcon: ({ color }) => <MaterialCommunityIcons size={28} name="chart-bar" color={color} />,
         }}
       />
       <Tabs.Screen
         name="explore"
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          href: null, // Hide explore if we don't delete the file yet
         }}
       />
     </Tabs>

@@ -1,98 +1,245 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
+import { Card, Title, Paragraph, Avatar, ActivityIndicator, Button, Text, Chip } from 'react-native-paper';
+import { getUserProfile, getForms } from '../../lib/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+export default function Dashboard() {
+  const [user, setUser] = useState<any>(null);
+  const [forms, setForms] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const router = useRouter();
 
-export default function HomeScreen() {
+  const fetchData = async () => {
+    try {
+      const [userData, formsData] = await Promise.all([
+        getUserProfile(),
+        getForms()
+      ]);
+      setUser(userData);
+      // Ensure formsData is an array (handle API response structure)
+      setForms(Array.isArray(formsData) ? formsData : formsData.data || []);
+    } catch (error) {
+      console.error('Failed to fetch data', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchData();
+  };
+
+  const handleLogout = async () => {
+    await AsyncStorage.removeItem('token');
+    router.replace('/signin');
+  };
+
+  const navigateToForm = (id: string) => {
+    router.push({ pathname: '/form-detail', params: { id } });
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#6200ee" />
+      </View>
+    );
+  }
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+    <View style={styles.mainContainer}>
+      <ScrollView 
+        contentContainerStyle={styles.container}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      >
+        {/* Header Section */}
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.greeting}>Welcome back,</Text>
+            <Title style={styles.userName}>{user?.name || 'User'}</Title>
+          </View>
+          <Avatar.Text 
+            size={45} 
+            label={user?.name ? user.name.substring(0, 2).toUpperCase() : 'U'} 
+            style={styles.avatar}
+          />
+        </View>
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+        {/* My Forms Section */}
+        <View style={styles.sectionHeader}>
+          <Title style={styles.sectionTitle}>My Forms</Title>
+          <Chip icon="file-document-outline">{forms.length} Forms</Chip>
+        </View>
+
+        {/* Forms List */}
+        {forms.length > 0 ? (
+          forms.map((form) => (
+            <TouchableOpacity key={form._id} onPress={() => navigateToForm(form._id)}>
+              <Card style={styles.formCard}>
+                <Card.Content>
+                  <View style={styles.cardHeader}>
+                    <Title style={styles.formTitle} numberOfLines={1}>{form.title}</Title>
+                    {form.aiGenerated && (
+                      <MaterialCommunityIcons name="robot" size={16} color="#6200ee" />
+                    )}
+                  </View>
+                  <Paragraph style={styles.formDesc} numberOfLines={2}>
+                    {form.description || 'No description'}
+                  </Paragraph>
+                  <View style={styles.cardFooter}>
+                    <Text style={styles.dateText}>
+                      {new Date(form.createdAt).toLocaleDateString()}
+                    </Text>
+                    <View style={styles.statusBadge}>
+                      <Text style={styles.statusText}>{form.status || 'Draft'}</Text>
+                    </View>
+                  </View>
+                </Card.Content>
+              </Card>
+            </TouchableOpacity>
+          ))
+        ) : (
+          <View style={styles.emptyState}>
+            <MaterialCommunityIcons name="file-document-edit-outline" size={64} color="#ccc" />
+            <Text style={styles.emptyText}>No forms created yet.</Text>
+            <Text style={styles.emptySubText}>Tap the + button to generate your first AI form.</Text>
+          </View>
+        )}
+
+        {/* Temporary Logout for testing */}
+        <Button onPress={handleLogout} style={styles.logoutButton} mode="text" textColor="#d32f2f">
+          Logout
+        </Button>
+
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
+  mainContainer: {
+    flex: 1,
+    backgroundColor: '#f8f9fa',
+  },
+  container: {
+    flexGrow: 1,
+    padding: 20,
+    paddingTop: 60,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 30,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  greeting: {
+    fontSize: 16,
+    color: '#666',
+  },
+  userName: {
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  avatar: {
+    backgroundColor: '#6200ee',
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  formCard: {
+    marginBottom: 12,
+    backgroundColor: 'white',
+    borderRadius: 12,
+    elevation: 2,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  formTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    flex: 1,
+    marginRight: 8,
+  },
+  formDesc: {
+    color: '#666',
+    fontSize: 14,
+    marginBottom: 12,
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+    paddingTop: 8,
+  },
+  dateText: {
+    fontSize: 12,
+    color: '#999',
+  },
+  statusBadge: {
+    backgroundColor: '#e8f5e9',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  statusText: {
+    fontSize: 10,
+    color: '#2e7d32',
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 40,
+    marginTop: 20,
+    backgroundColor: 'white',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#eee',
+    borderStyle: 'dashed',
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#444',
+    marginTop: 16,
+  },
+  emptySubText: {
+    fontSize: 14,
+    color: '#888',
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  logoutButton: {
+    marginTop: 40,
+    marginBottom: 20,
   },
 });
